@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>CLASS TIMER · 발표용 카운트다운</title>
+<style>
+  :root {
+    --black: #000000;
+    --red: #E50914;
+    --red-dim: #8b0207;
+    --gray-900: #141414;
+    --gray-800: #1f1f1f;
+    --gray-500: #6d6d6e;
+    --white: #ffffff;
+
+    --display: Impact, Haettenschweiler, "Arial Narrow Bold", "Arial Black", sans-serif;
+    --ui: "Pretendard", -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo",
+          "Malgun Gothic", "맑은 고딕", sans-serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body { height: 100%; }
+
+  body {
+    background: var(--black);
+    color: var(--white);
+    font-family: var(--ui);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    overflow: hidden;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    transition: background-color .12s linear;
+  }
+
+  /* ── 시그니처: 넷플릭스 로딩 바 (남은 시간이 줄어들며 빠짐) ── */
+  .track {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%;
+    height: 8px;
+    background: #1a1a1a;
+    z-index: 10;
+  }
+  .track__fill {
+    height: 100%;
+    width: 100%;
+    background: var(--red);
+    box-shadow: 0 0 24px rgba(229, 9, 20, .75);
+    transform-origin: left center;
+    transition: width .15s linear;
+  }
+
+  /* ── 헤더 ── */
+  .brand {
+    margin-top: 34px;
+    font-family: var(--display);
+    font-size: clamp(18px, 2.2vw, 30px);
+    letter-spacing: .34em;
+    color: var(--red);
+    text-transform: uppercase;
+  }
+  .brand span { color: var(--gray-500); }
+
+  /* ── 중앙 시간 ── */
+  main {
+    flex: 1;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+  }
+
+  .time {
+    font-family: var(--display);
+    font-size: clamp(150px, 26vw, 460px);
+    line-height: .82;
+    letter-spacing: -.02em;
+    font-variant-numeric: tabular-nums;
+    text-shadow: 0 0 90px rgba(255, 255, 255, .12);
+    transition: color .2s linear;
+  }
+
+  .status {
+    font-size: clamp(14px, 1.6vw, 22px);
+    font-weight: 700;
+    letter-spacing: .5em;
+    color: var(--gray-500);
+    text-transform: uppercase;
+    padding-left: .5em;
+  }
+
+  /* 10초 미만: 빨간색 + 긴박한 깜빡임 */
+  body.urgent .time {
+    color: var(--red);
+    text-shadow: 0 0 70px rgba(229, 9, 20, .8);
+    animation: blink .55s steps(1, end) infinite;
+  }
+  body.urgent .status { color: var(--red); }
+  @keyframes blink {
+    0%, 49%   { opacity: 1; }
+    50%, 100% { opacity: .12; }
+  }
+
+  /* 종료 */
+  body.done { background: #160002; }
+  body.done .time {
+    color: var(--red);
+    animation: shake .09s linear infinite;
+  }
+  @keyframes shake {
+    0%   { transform: translate(0, 0); }
+    25%  { transform: translate(-6px, 2px); }
+    50%  { transform: translate(5px, -3px); }
+    75%  { transform: translate(-3px, -1px); }
+    100% { transform: translate(0, 0); }
+  }
+  body.done .status { color: var(--red); }
+
+  /* ── 컨트롤 ── */
+  .controls {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 14px;
+    padding: 0 20px 30px;
+  }
+  .row { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; }
+
+  button {
+    font-family: var(--ui);
+    font-weight: 700;
+    color: var(--white);
+    border: none;
+    border-radius: 999px;
+    cursor: pointer;
+    transition: transform .14s ease, filter .14s ease, background-color .14s ease;
+  }
+  button:hover { filter: brightness(1.45); transform: translateY(-2px); }
+  button:active { transform: translateY(0) scale(.97); }
+  button:focus-visible { outline: 3px solid var(--white); outline-offset: 3px; }
+
+  .chip {
+    background: var(--gray-800);
+    font-size: clamp(15px, 1.5vw, 19px);
+    padding: 13px 30px;
+    letter-spacing: .02em;
+  }
+  .chip.is-on {
+    background: var(--red);
+    box-shadow: 0 0 26px rgba(229, 9, 20, .45);
+  }
+
+  .primary {
+    background: var(--red);
+    font-size: clamp(17px, 1.8vw, 22px);
+    padding: 17px 58px;
+    letter-spacing: .06em;
+  }
+  .ghost {
+    background: rgba(255, 255, 255, .14);
+    font-size: clamp(17px, 1.8vw, 22px);
+    padding: 17px 44px;
+    letter-spacing: .06em;
+  }
+
+  .utils { display: flex; gap: 18px; margin-top: 2px; }
+  .util {
+    background: none;
+    color: var(--gray-500);
+    font-size: 14px;
+    font-weight: 600;
+    padding: 6px 10px;
+    border-radius: 8px;
+  }
+  .util:hover { color: var(--white); transform: none; }
+
+  .hint {
+    color: #4a4a4a;
+    font-size: 12.5px;
+    letter-spacing: .04em;
+  }
+
+  @media (max-width: 620px) {
+    .chip { padding: 11px 20px; }
+    .primary, .ghost { padding: 15px 30px; }
+    .brand { margin-top: 24px; }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    body.urgent .time { animation-duration: 1.2s; }
+    body.done .time { animation: none; }
+    button:hover { transform: none; }
+  }
+</style>
+</head>
+<body>
+
+  <div class="track" aria-hidden="true">
+    <div class="track__fill" id="bar"></div>
+  </div>
+
+  <div class="brand">CLASS <span>TIMER</span></div>
+
+  <main>
+    <div class="time" id="time" role="timer" aria-live="off">05:00</div>
+    <div class="status" id="status">준비</div>
+  </main>
+
+  <div class="controls">
+    <div class="row" id="presets">
+      <button class="chip" data-min="1">1분</button>
+      <button class="chip" data-min="3">3분</button>
+      <button class="chip is-on" data-min="5">5분</button>
+      <button class="chip" id="add">＋1분</button>
+    </div>
+
+    <div class="row">
+      <button class="primary" id="start">시작</button>
+      <button class="ghost" id="stop">정지</button>
+      <button class="ghost" id="reset">리셋</button>
+    </div>
+
+    <div class="utils">
+      <button class="util" id="mute">🔊 소리 켜짐</button>
+      <button class="util" id="full">⛶ 전체화면</button>
+    </div>
+    <p class="hint">스페이스바 시작·정지 &nbsp;·&nbsp; R 리셋 &nbsp;·&nbsp; F 전체화면</p>
+  </div>
+
+<script>
+/* ══════════════════════════════════════════
+   1. 상태
+   ══════════════════════════════════════════ */
+const $ = id => document.getElementById(id);
+const el = {
+  time: $('time'), status: $('status'), bar: $('bar'),
+  start: $('start'), stop: $('stop'), reset: $('reset'),
+  add: $('add'), mute: $('mute'), full: $('full'), presets: $('presets')
+};
+
+let total   = 5 * 60 * 1000;   // 설정된 전체 시간(ms)
+let remain  = total;           // 남은 시간(ms)
+let endAt   = 0;               // 종료 시각 (performance.now 기준)
+let running = false;
+let finished = false;
+let lastSec = null;
+let rafId   = null;
+
+/* ══════════════════════════════════════════
+   2. 소리 — Web Audio API로 직접 생성
+   외부 URL은 교실 네트워크·차단 정책에서 자주 실패하므로
+   브라우저가 직접 만들어내는 방식이 안전합니다.
+   (외부 mp3를 쓰고 싶다면 아래 ALARM_URL 주석을 참고하세요)
+   ══════════════════════════════════════════ */
+let ctx = null, master = null, muted = false, live = [];
+
+function audio() {
+  if (!ctx) {
+    ctx = new (window.AudioContext || window.webkitAudioContext)();
+    master = ctx.createGain();
+    master.gain.value = muted ? 0 : 1;
+    master.connect(ctx.destination);
+  }
+  if (ctx.state === 'suspended') ctx.resume();
+  return ctx;
+}
+
+// 짧은 톤 하나
+function tone(delay, freq, dur, vol = 0.28, type = 'square') {
+  const c = audio(), t0 = c.currentTime + delay;
+  const osc = c.createOscillator(), gain = c.createGain();
+  osc.type = type;
+  osc.frequency.setValueAtTime(freq, t0);
+  gain.gain.setValueAtTime(0, t0);
+  gain.gain.linearRampToValueAtTime(vol, t0 + 0.012);
+  gain.gain.setValueAtTime(vol, t0 + dur - 0.03);
+  gain.gain.linearRampToValueAtTime(0, t0 + dur);
+  osc.connect(gain).connect(master);
+  osc.start(t0);
+  osc.stop(t0 + dur + 0.03);
+  live.push(osc);
+}
+
+// 폭탄 터지는 소리 (저음 낙하 + 노이즈 폭발)
+function boom(delay) {
+  const c = audio(), t0 = c.currentTime + delay;
+
+  const osc = c.createOscillator(), g1 = c.createGain();
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(180, t0);
+  osc.frequency.exponentialRampToValueAtTime(28, t0 + 1.1);
+  g1.gain.setValueAtTime(0.9, t0);
+  g1.gain.exponentialRampToValueAtTime(0.001, t0 + 1.2);
+  osc.connect(g1).connect(master);
+  osc.start(t0); osc.stop(t0 + 1.25);
+  live.push(osc);
+
+  const len = Math.floor(c.sampleRate * 0.9);
+  const buf = c.createBuffer(1, len, c.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / len);
+  const noise = c.createBufferSource(); noise.buffer = buf;
+  const lp = c.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 750;
+  const g2 = c.createGain(); g2.gain.value = 0.55;
+  noise.connect(lp).connect(g2).connect(master);
+  noise.start(t0);
+  live.push(noise);
+}
+
+// 10초 미만 초읽기 틱
+const tick = () => tone(0, 1180, 0.07, 0.22, 'square');
+
+// 종료: 삐- 삐- 삐- ×3 → 폭발
+function alarm() {
+  for (let set = 0; set < 3; set++) {
+    const base = set * 1.5;
+    tone(base + 0.00, 880, 0.28, 0.32);
+    tone(base + 0.42, 880, 0.28, 0.32);
+    tone(base + 0.84, 880, 0.28, 0.32);
+  }
+  boom(4.6);
+}
+
+function silence() {
+  live.forEach(n => { try { n.stop(); } catch (e) {} });
+  live = [];
+}
+
+/* 외부 효과음 파일을 쓰고 싶다면:
+   <audio id="alarmAudio" src="효과음.mp3" preload="auto"></audio> 를 추가하고
+   alarm() 안에서 document.getElementById('alarmAudio').play(); 를 호출하세요. */
+
+/* ══════════════════════════════════════════
+   3. 화면 그리기
+   ══════════════════════════════════════════ */
+function render() {
+  const ms = Math.max(0, remain);
+  const secs = Math.ceil(ms / 1000);
+  const urgent = ms > 0 && ms <= 10000;
+
+  el.time.textContent = urgent
+    ? String(secs)
+    : String(Math.floor(secs / 60)).padStart(2, '0') + ':' + String(secs % 60).padStart(2, '0');
+
+  el.bar.style.width = (total ? (ms / total) * 100 : 0) + '%';
+  document.body.classList.toggle('urgent', urgent && !finished);
+  document.body.classList.toggle('done', finished);
+  el.status.textContent = finished ? '시간 종료' : running ? '진행 중' : (ms === total ? '준비' : '일시 정지');
+  el.start.textContent = running ? '일시정지' : '시작';
+}
+
+function loop() {
+  remain = endAt - performance.now();
+  const secs = Math.ceil(Math.max(0, remain) / 1000);
+
+  if (secs !== lastSec) {
+    lastSec = secs;
+    if (secs > 0 && secs <= 10) tick();
+  }
+
+  if (remain <= 0) { finish(); return; }
+  render();
+  rafId = requestAnimationFrame(loop);
+}
+
+/* ══════════════════════════════════════════
+   4. 동작
+   ══════════════════════════════════════════ */
+function play() {
+  if (finished || remain <= 0) return;
+  audio();                       // 클릭 시점에 오디오 잠금 해제
+  running = true;
+  endAt = performance.now() + remain;
+  lastSec = Math.ceil(remain / 1000);
+  cancelAnimationFrame(rafId);
+  rafId = requestAnimationFrame(loop);
+  render();
+}
+
+function pause() {
+  if (!running) return;
+  running = false;
+  cancelAnimationFrame(rafId);
+  remain = Math.max(0, endAt - performance.now());
+  silence();
+  render();
+}
+
+function finish() {
+  running = false;
+  finished = true;
+  remain = 0;
+  cancelAnimationFrame(rafId);
+  render();
+  alarm();
+}
+
+function setMinutes(min) {
+  cancelAnimationFrame(rafId);
+  silence();
+  running = false; finished = false;
+  total = min * 60 * 1000;
+  remain = total;
+  lastSec = null;
+  render();
+}
+
+function reset() {
+  cancelAnimationFrame(rafId);
+  silence();
+  running = false; finished = false;
+  remain = total;
+  lastSec = null;
+  render();
+}
+
+/* ══════════════════════════════════════════
+   5. 이벤트
+   ══════════════════════════════════════════ */
+el.presets.querySelectorAll('[data-min]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    setMinutes(Number(btn.dataset.min));
+    el.presets.querySelectorAll('[data-min]').forEach(b => b.classList.remove('is-on'));
+    btn.classList.add('is-on');
+  });
+});
+
+el.add.addEventListener('click', () => {
+  total += 60000;
+  remain = finished ? 60000 : remain + 60000;
+  if (finished) { finished = false; silence(); }
+  if (running) endAt += 60000;
+  render();
+});
+
+el.start.addEventListener('click', () => running ? pause() : play());
+el.stop.addEventListener('click', () => { pause(); silence(); });
+el.reset.addEventListener('click', reset);
+
+el.mute.addEventListener('click', () => {
+  muted = !muted;
+  if (ctx) master.gain.value = muted ? 0 : 1;
+  el.mute.textContent = muted ? '🔇 소리 꺼짐' : '🔊 소리 켜짐';
+});
+
+el.full.addEventListener('click', () => {
+  document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen();
+});
+
+document.addEventListener('keydown', e => {
+  if (e.code === 'Space') { e.preventDefault(); running ? pause() : play(); }
+  if (e.key === 'r' || e.key === 'R') reset();
+  if (e.key === 'f' || e.key === 'F') el.full.click();
+  if (e.key === '1') el.presets.children[0].click();
+  if (e.key === '3') el.presets.children[1].click();
+  if (e.key === '5') el.presets.children[2].click();
+});
+
+render();
+</script>
+</body>
+</html>
